@@ -15,7 +15,7 @@ from scipy import io
 num_test_samples_cifar10 = [1000] * 10
 num_test_samples_cifar100 = [100] * 100
 
-DATA_ROOT = os.path.expanduser('~/data')
+DATA_ROOT = os.path.expanduser('./data')
 
 
 def make_longtailed_imb(max_num, class_num, gamma):
@@ -151,7 +151,7 @@ def get_imbalanced(dataset, num_sample_per_class, batch_size, TF_train, TF_test)
     print("Building CV {} data loader with {} workers".format(dataset, 8))
     ds = []
 
-    if dataset == 'cifar10':
+    if dataset in ('cifar10', 'svhn'):
         dataset_ = datasets.CIFAR10
         num_test_samples = num_test_samples_cifar10
     elif dataset == 'cifar100':

@@ -29,7 +29,7 @@ def parse_args():
                         help='total epochs to run')
     parser.add_argument('--seed', default=None, type=int, help='random seed')
     parser.add_argument('--dataset', required=True,
-                        choices=['cifar10', 'cifar100'], help='Dataset')
+                        choices=['cifar10', 'cifar100', 'svhn'], help='Dataset')
     parser.add_argument('--decay', default=2e-4, type=float, help='weight decay')
     parser.add_argument('--no-augment', dest='augment', action='store_false',
                         help='use standard augmentation (default: True)')
@@ -109,13 +109,18 @@ elif DATASET == 'cifar10':
     N_CLASSES = 10
     N_SAMPLES = 5000
     mean = torch.tensor([0.4914, 0.4822, 0.4465])
-    std = torch.tensor([0.2023, 0.1994, 0.2010])
+    std = torch.tensor([0.2023, 0.1994, 0.2010]) # [0.247,  0.2435, 0.2616]
+elif DATASET == 'svhn':
+    N_CLASSES = 10
+    N_SAMPLES = 5000
+    mean = torch.tensor([0.4377, 0.4438, 0.4728])
+    std = torch.tensor([0.198, 0.201, 0.197])
 else:
     raise NotImplementedError()
 
 normalizer = InputNormalize(mean, std).to(device)
 
-if 'cifar' in DATASET:
+if any(substring in DATASET for substring in ('cifar', 'svhn')):
     if ARGS.augment:
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
