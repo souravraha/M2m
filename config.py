@@ -29,7 +29,7 @@ def parse_args():
                         help='total epochs to run')
     parser.add_argument('--seed', default=None, type=int, help='random seed')
     parser.add_argument('--dataset', required=True,
-                        choices=['cifar10', 'cifar100', 'svhn'], help='Dataset')
+                        choices=['cifar10', 'cifar100', 'svhn', 'celebA', 'sun397'], help='Dataset')
     parser.add_argument('--decay', default=2e-4, type=float, help='weight decay')
     parser.add_argument('--no-augment', dest='augment', action='store_false',
                         help='use standard augmentation (default: True)')
