@@ -115,12 +115,17 @@ elif DATASET == 'svhn':
     N_SAMPLES = 5000
     mean = torch.tensor([0.4377, 0.4438, 0.4728])
     std = torch.tensor([0.198, 0.201, 0.197])
+elif DATASET == 'sun397':
+    N_CLASSES = 397
+    N_SAMPLES = 5000
+    mean = torch.tensor([0.4377, 0.4438, 0.4728])
+    std = torch.tensor([0.198, 0.201, 0.197])
 else:
     raise NotImplementedError()
 
 normalizer = InputNormalize(mean, std).to(device)
 
-if any(substring in DATASET for substring in ('cifar', 'svhn')):
+if any(substring in DATASET for substring in ('cifar', 'svhn', 'sun397')):
     if ARGS.augment:
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
