@@ -1,22 +1,61 @@
-import torch
-import os
-import numpy.random as nr
-import numpy as np
 import bisect
+import os
+
+import numpy as np
+import numpy.random as nr
+import torch
+from fuzzywuzzy import fuzz
 from PIL import Image
-
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler, WeightedRandomSampler
-from torch.utils.data import Dataset
-from torch.utils.data import TensorDataset
 from scipy import io
+from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torch.utils.data.sampler import SubsetRandomSampler, WeightedRandomSampler
+from torchvision import datasets, transforms
 
-num_test_samples_cifar10 = [1000] * 10
-num_test_samples_cifar100 = [100] * 100
-num_test_samples_svhn = [1000] * 10
+MAPPING = {
+    "mnist": (datasets.MNIST, [1000] * 10),
+    "cifar10": (datasets.CIFAR10, [1000] * 10),
+    "cifar100": (datasets.CIFAR100, [100] * 10),
+    "svhn": (datasets.SVHN, [1000] * 10),
+    "sun397": (datasets.SUN397, [1000] * 10),
+    # Add more dataset mappings as needed
+}
+
+def get_fuzzy_match(query, choices, threshold=80):
+    best_match = None
+    best_ratio = 0
+    for choice in choices:
+        ratio = fuzz.ratio(query.lower(), choice.lower())
+        if ratio > best_ratio and ratio >= threshold:
+            best_match = choice
+            best_ratio = ratio
+    return best_match
+
+def get_class_nsamples(dataset_name):
+    if dataset_name in MAPPING:
+        return MAPPING[dataset_name]
+    else:
+        fuzzy_match = get_fuzzy_match(dataset_name, MAPPING.keys())
+        if fuzzy_match is not None:
+            return MAPPING[fuzzy_match]
+        else:
+            raise ValueError("Unsupported dataset name: " + dataset_name)
 
 DATA_ROOT = os.path.expanduser('./data')
+
+def instantiate_unknown_class(class_type, **kwargs):
+    # Get the constructor signature of the class
+    constructor = class_type.__init__
+
+    # Get the parameters of the constructor
+    parameters = list(constructor.__code__.co_varnames)[1:]  # Exclude 'self' parameter
+
+    # Filter the keyword arguments based on the constructor parameters
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k in parameters}
+
+    # Instantiate the class with the filtered keyword arguments
+    instance = class_type(**filtered_kwargs)
+
+    return instance
 
 
 def make_longtailed_imb(max_num, class_num, gamma):
@@ -104,23 +143,11 @@ def get_oversampled(dataset, num_sample_per_class, batch_size, TF_train, TF_test
     print("Building {} CV data loader with {} workers".format(dataset, 8))
     ds = []
 
-    if dataset == 'cifar10':
-        dataset_ = datasets.CIFAR10
-        num_test_samples = num_test_samples_cifar10
-    elif dataset == 'cifar100':
-        dataset_ = datasets.CIFAR100
-        num_test_samples = num_test_samples_cifar100
-    elif dataset == 'svhn':
-        dataset_ = datasets.SVHN
-        num_test_samples = num_test_samples_svhn
-    else:
-        raise NotImplementedError()
-
+    dataset_, num_test_samples = get_class_nsamples(dataset)
+    train_set = instantiate_unknown_class(dataset_, root=DATA_ROOT, train=True, split='train', download=False, transform=TF_train)
     try:
-        train_set = dataset_(root=DATA_ROOT, train=True, download=False, transform=TF_train)
         targets = np.array(train_set.targets)
     except:
-        train_set = dataset_(root=DATA_ROOT, split='train', download=False, transform=TF_train)
         targets = np.array(train_set.labels)
    
     classes, class_counts = np.unique(targets, return_counts=True)
@@ -142,10 +169,7 @@ def get_oversampled(dataset, num_sample_per_class, batch_size, TF_train, TF_test
                                  sampler=WeightedRandomSampler(train_in_idx, len(train_in_idx)), num_workers=8)
     ds.append(train_in_loader)
 
-    try:
-        test_set = dataset_(root=DATA_ROOT, train=False, download=False, transform=TF_test)
-    except TypeError:
-        test_set = dataset_(root=DATA_ROOT, split='test', download=False, transform=TF_test)
+    test_set = instantiate_unknown_class(dataset_, root=DATA_ROOT, train=False, split='test', download=False, transform=TF_test)
 
     val_idx, test_idx = get_val_test_data(test_set, num_test_samples)
     val_loader = DataLoader(test_set, batch_size=100,
@@ -163,32 +187,15 @@ def get_imbalanced(dataset, num_sample_per_class, batch_size, TF_train, TF_test)
     print("Building CV {} data loader with {} workers".format(dataset, 8))
     ds = []
 
-    if dataset == 'cifar10':
-        dataset_ = datasets.CIFAR10
-        num_test_samples = num_test_samples_cifar10
-    elif dataset == 'cifar100':
-        dataset_ = datasets.CIFAR100
-        num_test_samples = num_test_samples_cifar100
-    elif dataset == 'svhn':
-        dataset_ = datasets.SVHN
-        num_test_samples = num_test_samples_svhn
-    else:
-        raise NotImplementedError()
-
-    try:
-        train_set = dataset_(root=DATA_ROOT, train=True, download=False, transform=TF_train)
-    except TypeError:
-        train_set = dataset_(root=DATA_ROOT, split='train', download=False, transform=TF_train)
+    dataset_, num_test_samples = get_class_nsamples(dataset)
+    train_set = instantiate_unknown_class(dataset_, root=DATA_ROOT, train=True, split='train', download=True, transform=TF_train)
 
     train_in_idx = get_imbalanced_data(train_set, num_sample_per_class)
     train_in_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
                                                   sampler=SubsetRandomSampler(train_in_idx), num_workers=8)
     ds.append(train_in_loader)
 
-    try:
-        test_set = dataset_(root=DATA_ROOT, train=False, download=False, transform=TF_test)
-    except TypeError:
-        test_set = dataset_(root=DATA_ROOT, split='test', download=False, transform=TF_test)
+    test_set = instantiate_unknown_class(dataset_, root=DATA_ROOT, train=False, split='test', download=False, transform=TF_test)
 
     val_idx, test_idx= get_val_test_data(test_set, num_test_samples)
     val_loader = torch.utils.data.DataLoader(test_set, batch_size=100,
@@ -236,23 +243,12 @@ def get_smote(dataset,  num_sample_per_class, batch_size, TF_train, TF_test):
     print("Building CV {} data loader with {} workers".format(dataset, 8))
     ds = []
 
-    if dataset == 'cifar10':
-        dataset_ = datasets.CIFAR10
-        num_test_samples = num_test_samples_cifar10
-    elif dataset == 'cifar100':
-        dataset_ = datasets.CIFAR100
-        num_test_samples = num_test_samples_cifar100
-    elif dataset == 'svhn':
-        dataset_ = datasets.SVHN
-        num_test_samples = num_test_samples_svhn
-    else:
-        raise NotImplementedError()
+    dataset_, num_test_samples = get_class_nsamples(dataset)
+    train_set = instantiate_unknown_class(dataset_, root=DATA_ROOT, train=True, split='train', download=False, transform=TF_train)
 
     try:
-        train_set = dataset_(root=DATA_ROOT, train=True, download=False, transform=TF_train)
         targets = np.array(train_set.targets)
     except TypeError:
-        train_set = dataset_(root=DATA_ROOT, split='train', download=False, transform=TF_train)
         targets = np.array(train_set.labels)
 
     classes, class_counts = np.unique(targets, return_counts=True)
@@ -281,10 +277,7 @@ def get_smote(dataset,  num_sample_per_class, batch_size, TF_train, TF_test):
     train_in_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=8)
     ds.append(train_in_loader)
 
-    try:
-        test_set = dataset_(root=DATA_ROOT, train=False, download=False, transform=TF_test)
-    except TypeError:
-        test_set = dataset_(root=DATA_ROOT, split='test', download=False, transform=TF_test)
+    test_set = instantiate_unknown_class(dataset_, root=DATA_ROOT, train=False, split='test', download=False, transform=TF_test)
 
     val_idx, test_idx = get_val_test_data(test_set, num_test_samples)
     val_loader = torch.utils.data.DataLoader(test_set, batch_size=100,
