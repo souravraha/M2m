@@ -259,8 +259,11 @@ def init_params(net):
                 init.constant(m.bias, 0)
 
 
-_, term_width = os.popen('stty size', 'r').read().split()
-term_width = int(term_width)
+if sys.stdin.isatty():
+    _, term_width = os.popen('stty size', 'r').read().split()
+else:
+    # Handle the case when running in a non-interactive environment
+    term_width = 0  # Provide default values or alternative behaviorterm_width = int(term_width)
 
 TOTAL_BAR_LENGTH = 50.
 last_time = time.time()
