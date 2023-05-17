@@ -1,15 +1,15 @@
 import argparse
 
+import models
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
-import torchvision.transforms as transforms
-
-from data_loader import make_longtailed_imb, get_imbalanced, get_oversampled, get_smote
+import torch.nn as nn
+from data_loader import (get_imbalanced, get_oversampled, get_smote,
+                         make_longtailed_imb)
+from fuzzywuzzy import fuzz
+from torchvision import datasets, transforms
 from utils import InputNormalize, sum_t
-import models
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cudnn.benchmark = True
@@ -18,6 +18,17 @@ if torch.cuda.is_available():
 else:
     N_GPUS = 0
 
+def find_torchvision_dataset(input_string):
+    best_match = None
+    best_match_score = 0
+
+    for dataset_name in datasets.__all__:
+        similarity_score = fuzz.token_set_ratio(input_string.lower(), dataset_name.lower())
+        if similarity_score > best_match_score:
+            best_match = dataset_name
+            best_match_score = similarity_score
+
+    return best_match
 
 def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -84,7 +95,7 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
 
-DATASET = ARGS.dataset
+DATASET = find_torchvision_dataset(ARGS.dataset)
 BATCH_SIZE = ARGS.batch_size
 MODEL = ARGS.model
 
@@ -112,14 +123,14 @@ elif DATASET == 'cifar10':
     std = torch.tensor([0.2023, 0.1994, 0.2010]) # [0.247,  0.2435, 0.2616]
 elif DATASET == 'svhn':
     N_CLASSES = 10
-    N_SAMPLES = 5000
+    N_SAMPLES = [4948, 13861, 10585, 8497, 7458, 6882, 5727, 5595, 5045, 4659]
     mean = torch.tensor([0.4377, 0.4438, 0.4728])
     std = torch.tensor([0.198, 0.201, 0.197])
 elif DATASET == 'sun397':
     N_CLASSES = 397
-    N_SAMPLES = 5000
-    mean = torch.tensor([0.4377, 0.4438, 0.4728])
-    std = torch.tensor([0.198, 0.201, 0.197])
+    N_SAMPLES = [484, 115, 1091, 324, 316, 219, 750, 173, 527, 164, 169, 354, 218, 146, 164, 283, 139, 310, 159, 114, 127, 332, 340, 242, 463, 209, 221, 482, 125, 177, 202, 112, 141, 296, 738, 279, 140, 287, 152, 295, 111, 951, 117, 166, 156, 111, 1194, 549, 2084, 120, 100, 100, 144, 123, 111, 210, 483, 263, 211, 131, 410, 124, 124, 847, 325, 187, 112, 182, 227, 139, 318, 104, 476, 174, 193, 490, 259, 255, 222, 125, 392, 590, 1100, 135, 238, 635, 430, 569, 314, 101, 174, 102, 287, 159, 236, 921, 225, 130, 234, 199, 300, 336, 458, 695, 161, 186, 105, 833, 527, 100, 445, 339, 134, 332, 229, 376, 147, 100, 565, 547, 172, 186, 142, 154, 242, 166, 313, 195, 164, 118, 117, 197, 243, 1180, 137, 130, 550, 165, 281, 125, 126, 101, 139, 127, 121, 125, 394, 334, 101, 259, 169, 343, 248, 294, 283, 111, 167, 154, 103, 265, 162, 502, 152, 251, 212, 265, 221, 171, 100, 328, 803, 101, 161, 140, 814, 357, 136, 372, 205, 131, 250, 144, 101, 221, 833, 144, 178, 120, 203, 116, 241, 120, 492, 955, 103, 113, 207, 133, 253, 219, 399, 166, 134, 120, 330, 111, 193, 185, 174, 179, 158, 207, 144, 1746, 133, 140, 430, 219, 308, 320, 192, 358, 102, 138, 128, 489, 108, 2361, 464, 101, 365, 454, 266, 101, 839, 193, 183, 201, 104, 110, 178, 124, 536, 254, 518, 736, 218, 248, 110, 369, 116, 250, 109, 202, 232, 136, 300, 159, 210, 207, 368, 310, 200, 223, 565, 143, 100, 111, 439, 329, 612, 117, 145, 159, 316, 163, 148, 222, 115, 898, 244, 228, 120, 143, 179, 125, 397, 142, 102, 140, 142, 126, 116, 145, 219, 128, 231, 188, 118, 110, 796, 134, 443, 100, 106, 228, 109, 112, 327, 180, 135, 203, 177, 139, 126, 116, 288, 181, 725, 284, 125, 100, 112, 188, 260, 167, 801, 192, 189, 116, 161, 280, 117, 123, 680, 458, 455, 518, 373, 119, 143, 256, 428, 129, 147, 197, 202, 155, 122, 429, 223, 237, 109, 100, 114, 131, 103, 112, 704, 388, 136, 276, 119, 118, 113, 105, 494, 144, 145, 131, 496, 100, 140, 254, 125, 138, 452, 126, 107, 137, 476, 777, 396, 210, 203, 106, 107, 274, 135, 247, 302, 413, 246, 340, 100, 201, 138]
+    mean = torch.tensor([0.4758, 0.4603, 0.4248])
+    std = torch.tensor([0.2360, 0.2343, 0.2471])
 else:
     raise NotImplementedError()
 
