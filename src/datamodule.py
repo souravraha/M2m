@@ -5,7 +5,7 @@ from random import shuffle
 
 import lightning as L
 import torch
-import torch.utils.data as data
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets as D
 from torchvision import transforms as T
 from tqdm import tqdm
@@ -39,30 +39,37 @@ class SUN397DataModule(L.LightningDataModule):
     def setup(self, stage=None):
         # Load and split the dataset into train and validation sets
         dataset = D.SUN397(root=self.data_dir, transform=self.transform)
-        self.dataloader = partial(data.DataLoader, 
-            dataset=dataset, batch_size=self.bs, 
-            num_workers=torch.get_num_threads(), 
-            pin_memory=True,
-        )
-        self.cls_idxs = [[] for _ in range(SUN397DataModule.NUM_CLASSES)]
+        # Create a list of indices that belong to each class
+        cls_idx_list = [[] for _ in range(SUN397DataModule.NUM_CLASSES)]
         for i, label in tqdm(enumerate(dataset._labels)):
-            self.cls_idxs[label].append(i)
-
-        self.val_idxs = []
-        self.test_idxs = []
+            cls_idx_list[label].append(i)
         
-        for idx_list in tqdm(self.cls_idxs):
+        # Create val and test splits in a stratified manner
+        val_idxs = []
+        test_idxs = []
+        for idx_list in tqdm(cls_idx_list):
             shuffle(idx_list)
-            self.val_idxs.extend(idx_list[:self.split["val"]])
-            self.test_idxs.extend(idx_list[self.split["val"]:sum(self.split.values())])
+            val_idxs.extend(idx_list[:self.split["val"]])
+            test_idxs.extend(idx_list[self.split["val"]:sum(self.split.values())])
         
-        self.train_idxs = list(set(range(len(dataset))) - set(self.val_idxs) - set(self.test_idxs))
-
+        # The remaining are the train split
+        train_idxs = list(set(range(len(dataset))) - set(self.val_idxs) - set(self.test_idxs))
+        # Define subsets as required by the stage
+        if stage == "fit":
+            self.val_set = Subset(dataset=dataset, indices=val_idxs)
+            self.train_set = Subset(dataset=dataset, indices=train_idxs)
+        
+        elif stage == "test":
+            self.test_set = Subset(dataset=dataset, indices=test_idxs)
+        
+        else:
+            raise NotImplementedError()
+        
     def train_dataloader(self):
-        return self.dataloader(sampler=data.SubsetRandomSampler(self.train_idxs))
+        return DataLoader(self.train_set, batch_size=self.bs, shuffle=True, num_workers=torch.get_num_threads(), pin_memory=True)
 
     def val_dataloader(self):
-        return self.dataloader(sampler=data.SubsetRandomSampler(self.val_idxs))
+        return DataLoader(self.val_set, batch_size=self.bs, num_workers=torch.get_num_threads(), pin_memory=True)
 
     def test_dataloader(self):
-        return self.dataloader(sampler=data.SubsetRandomSampler(self.test_idxs))
+        return DataLoader(self.test_set, batch_size=self.bs, num_workers=torch.get_num_threads(), pin_memory=True)
