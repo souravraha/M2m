@@ -17,7 +17,7 @@ class SUN397DataModule(L.LightningDataModule):
     MEANS = [0.4833, 0.4656, 0.4285]
     STDS = [0.2646, 0.2618, 0.2847]
 
-    def __init__(self, data_dir, val_split_per_class=10, test_split_per_class=40, batch_size=128, **kwargs):
+    def __init__(self, data_dir, batch_size, val_split_per_class=10, test_split_per_class=40, **kwargs):
         super().__init__()
         self.data_dir = data_dir
         self.transform = T.Compose([

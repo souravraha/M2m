@@ -93,9 +93,9 @@ BLOCK_TYPE ={
 class ResNet(nn.Module):
     def __init__(
         self,
-        num_classes=10,
-        num_blocks=[3, 3, 3],
-        c_hidden=[16, 32, 64],
+        num_classes,
+        num_blocks,
+        c_hidden,
         act_fn_name="relu",
         block_name="resnet",
         **kwargs,
@@ -117,7 +117,7 @@ class ResNet(nn.Module):
             num_blocks=num_blocks,
             act_fn_name=act_fn_name,
             act_fn=ACT_FN[act_fn_name],
-            block_class=block_name,
+            block_class=BLOCK_TYPE[block_name],
         )
         self._create_network()
         self._init_params()
