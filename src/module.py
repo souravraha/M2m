@@ -18,10 +18,6 @@ class ERMModule(L.LightningModule):
                 "num_blocks": [2, 2, 2, 2], 
                 "c_hidden": [64, 128, 256, 512],
             }, 
-            # optimizer_name="SGD", 
-            # optimizer_hparams={
-            #     "lr": 0.1, "momentum": 0.9, "weight_decay": 2e-4
-            # }
     ):
         """ERMModule.
 
@@ -33,7 +29,6 @@ class ERMModule(L.LightningModule):
         """
         super().__init__()
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
-        self.save_hyperparameters()
         # Create model
         self.backbone = getattr(backbone, backbone_name)(**backbone_hparams)
         # Create loss module
