@@ -8,7 +8,7 @@ trainer:
   precision: 32-true
   logger: null
   callbacks: null
-  fast_dev_run: false
+  fast_dev_run: null
   max_epochs: 1
   min_epochs: null
   max_steps: -1
@@ -23,7 +23,7 @@ trainer:
   check_val_every_n_epoch: 1
   num_sanity_val_steps: null
   log_every_n_steps: null
-  enable_checkpointing: null
+  enable_checkpointing: true
   enable_progress_bar: null
   enable_model_summary: null
   accumulate_grad_batches: 1
@@ -39,7 +39,7 @@ trainer:
   plugins: null
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 0
-  default_root_dir: ../erm_sun397/
+  default_root_dir: ../results/erm_sun397/
 ckpt_path: null
 model:
   class_path: module.ERMModule
