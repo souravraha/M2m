@@ -1,6 +1,6 @@
 __pycache__
 *.ipynb
-data/
+data*
 *logs/
 saved_models/
 results/
