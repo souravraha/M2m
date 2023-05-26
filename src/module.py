@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from filelock import FileLock
 from torchmetrics import MetricCollection
-from torchmetrics.classification import MulticlassF1Score, MulticlassRecall
+from torchmetrics.classification import F1Score, Recall
 
 
 class ERMModule(L.LightningModule):
@@ -39,11 +39,11 @@ class ERMModule(L.LightningModule):
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
-        self.example_input_array = torch.zeros((1, 3, 32, 32))
+        self.example_input_array = torch.zeros((1, 3, 32, 32), device=self.device)
         # Creates metrics that would be logged
         metric = MetricCollection(
-            MulticlassRecall(num_classes=self.backbone.hparams.num_classes, average=None),
-            MulticlassF1Score(num_classes=self.backbone.hparams.num_classes, average="weighted"),
+            Recall(task="multiclass", num_classes=self.backbone.hparams.num_classes, average="none"),
+            F1Score(task="multiclass", num_classes=self.backbone.hparams.num_classes, average="weighted"),
         )
         self.train_metrics = metric.clone(prefix="train_")
         self.val_metrics = metric.clone(prefix="val_")
@@ -62,19 +62,19 @@ class ERMModule(L.LightningModule):
         # Obatin dict of metrics
         metric = getattr(self, f"{stage}_metrics")(preds, labels)
         # Compute geometric mean score
-        metric[f"{stage}_MulticlassRecall"] = torch.exp(torch.mean(torch.log(metric[f"{stage}_MulticlassRecall"])))
-        self.log_dict(metric, on_epoch=True, sync_dist=True)
+        metric[f"{stage}_Recall"] = torch.exp(torch.mean(torch.log(metric[f"{stage}_Recall"])))
+        self.log_dict(metric, sync_dist=True, prog_bar=True)
 
         if stage == "train":
             loss = self.loss_module(logits, labels)
-            self.log("train_loss", loss)
+            self.log("train_loss", loss, prog_bar=True, sync_dist=True)
             return loss
         
         # Create pandas dataframe if stage is not train
         df = pd.DataFrame(preds.cpu().numpy()).add_prefix("Prob_")
         df["True"] = labels.cpu()
         # Save labels and predictions to a file with file locking
-        filename = f"{self.trainer.log_dir}/{stage}_labels_preds.csv"
+        filename = f"{self.trainer.log_dir}/step_{self.global_step:06}_{stage}_labels_preds.csv"
         with FileLock(f"{filename}.lock"):
             df.to_csv(filename, mode="a", header=not os.path.isfile(filename), index=False)
         
