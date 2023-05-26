@@ -1,6 +1,3 @@
-# Define the LightningDataModule
-
-from functools import partial
 from random import shuffle
 
 import lightning as L
@@ -8,9 +5,8 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets as D
 from torchvision import transforms as T
-from tqdm import tqdm
 
-
+# Define the LightningDataModules
 class SUN397DataModule(L.LightningDataModule):
     name = "sun397"
     NUM_CLASSES = 397
@@ -40,20 +36,20 @@ class SUN397DataModule(L.LightningDataModule):
         # Load and split the dataset into train and validation sets
         dataset = D.SUN397(root=self.data_dir, transform=self.transform)
         # Create a list of indices that belong to each class
-        cls_idx_list = [[] for _ in range(SUN397DataModule.NUM_CLASSES)]
-        for i, label in tqdm(enumerate(dataset._labels)):
+        cls_idx_list = [[] for _ in range(len(dataset.classes))]
+        for i, label in enumerate(dataset._labels):
             cls_idx_list[label].append(i)
         
         # Create val and test splits in a stratified manner
         val_idxs = []
         test_idxs = []
-        for idx_list in tqdm(cls_idx_list):
+        for idx_list in cls_idx_list:
             shuffle(idx_list)
             val_idxs.extend(idx_list[:self.split["val"]])
             test_idxs.extend(idx_list[self.split["val"]:sum(self.split.values())])
         
         # The remaining are the train split
-        train_idxs = list(set(range(len(dataset))) - set(self.val_idxs) - set(self.test_idxs))
+        train_idxs = list(set(range(len(dataset))) - set(val_idxs) - set(test_idxs))
         # Define subsets as required by the stage
         if stage == "fit":
             self.val_set = Subset(dataset=dataset, indices=val_idxs)
