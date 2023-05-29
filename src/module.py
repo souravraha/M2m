@@ -11,14 +11,7 @@ from torchmetrics.classification import F1Score, Recall
 
 
 class ERMModule(L.LightningModule):
-    def __init__(
-            self, backbone_name="ResNet", 
-            backbone_hparams={
-                "num_classes": None, 
-                "num_blocks": [2, 2, 2, 2], 
-                "c_hidden": [64, 128, 256, 512],
-            }, 
-    ):
+    def __init__(self, num_classes, **kwargs):
         """ERMModule.
 
         Args:
@@ -30,15 +23,15 @@ class ERMModule(L.LightningModule):
         super().__init__()
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         # Create model
-        self.backbone = getattr(backbone, backbone_name)(**backbone_hparams)
+        self.backbone = getattr(backbone, kwargs.get("bb_name", "ResNet"))(num_classes, **(kwargs.get("bb_hparams", {})))
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
         self.example_input_array = torch.zeros((1, 3, 32, 32), device=self.device)
         # Creates metrics that would be logged
         metric = MetricCollection(
-            Recall(task="multiclass", num_classes=self.backbone.hparams.num_classes, average="none"),
-            F1Score(task="multiclass", num_classes=self.backbone.hparams.num_classes, average="weighted"),
+            Recall(task="multiclass", num_classes=num_classes, average="none"),
+            F1Score(task="multiclass", num_classes=num_classes, average="weighted"),
         )
         self.train_metrics = metric.clone(prefix="train_")
         self.val_metrics = metric.clone(prefix="val_")
@@ -57,7 +50,7 @@ class ERMModule(L.LightningModule):
         # Obatin dict of metrics
         metric = getattr(self, f"{stage}_metrics")(preds, labels)
         # Compute geometric mean score
-        metric[f"{stage}_Recall"] = torch.exp(torch.mean(torch.log(metric[f"{stage}_Recall"])))
+        metric[f"{stage}_MulticlassRecall"] = torch.exp(torch.mean(torch.log(metric[f"{stage}_MulticlassRecall"])))
         self.log_dict(metric, sync_dist=True, prog_bar=True)
 
         if stage == "train":

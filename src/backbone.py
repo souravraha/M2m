@@ -94,8 +94,8 @@ class ResNet(nn.Module):
     def __init__(
         self,
         num_classes,
-        num_blocks,
-        c_hidden,
+        num_blocks=[3, 3, 3],
+        c_hidden=[16, 32, 64],
         act_fn_name="relu",
         block_name="resnet",
         **kwargs,

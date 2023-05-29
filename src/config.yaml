@@ -5,10 +5,10 @@ trainer:
   strategy: auto
   devices: auto
   num_nodes: 1
-  precision: 32-true
+  precision: 16-mixed
   logger: null
   callbacks: null
-  fast_dev_run: null
+  fast_dev_run: false
   max_epochs: 1
   min_epochs: null
   max_steps: -1
@@ -44,9 +44,9 @@ ckpt_path: null
 model:
   class_path: module.ERMModule
   init_args:
-    backbone_name: ResNet
-    backbone_hparams:
-      num_classes: 397
+    num_classes: 397
+    bb_name: ResNet
+    bb_hparams:
       num_blocks:
       - 2
       - 2
@@ -57,13 +57,15 @@ model:
       - 128
       - 256
       - 512
+      block_name: preact
 data:
   class_path: datamodule.SUN397DataModule
   init_args:
     data_dir: ../data
-    batch_size: 128
     val_split_per_class: 10
     test_split_per_class: 40
+    batch_size: 128
+    num_workers: 24
 optimizer:
   class_path: torch.optim.SGD
   init_args:

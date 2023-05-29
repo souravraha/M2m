@@ -1,7 +1,7 @@
 from random import shuffle
 
 import lightning as L
-import torch
+import os
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets as D
 from torchvision import transforms as T
@@ -13,7 +13,7 @@ class SUN397DataModule(L.LightningDataModule):
     MEANS = [0.4833, 0.4656, 0.4285]
     STDS = [0.2646, 0.2618, 0.2847]
 
-    def __init__(self, data_dir, batch_size, val_split_per_class=10, test_split_per_class=40, **kwargs):
+    def __init__(self, data_dir, val_split_per_class=10, test_split_per_class=40, **kwargs):
         super().__init__()
         self.data_dir = data_dir
         self.transform = T.Compose([
@@ -30,20 +30,21 @@ class SUN397DataModule(L.LightningDataModule):
             "val": val_split_per_class,
             "test": test_split_per_class,
         }
-        self.bs = batch_size
+        self.bs = kwargs.get("batch_size", 128)
+        self.nw = kwargs.get("num_workers", 24)
 
     def setup(self, stage=None):
         # Load and split the dataset into train and validation sets
         dataset = D.SUN397(root=self.data_dir, transform=self.transform)
         # Create a list of indices that belong to each class
-        cls_idx_list = [[] for _ in range(len(dataset.classes))]
+        self.cls_idx_list = [[] for _ in range(len(dataset.classes))]
         for i, label in enumerate(dataset._labels):
-            cls_idx_list[label].append(i)
+            self.cls_idx_list[label].append(i)
         
         # Create val and test splits in a stratified manner
         val_idxs = []
         test_idxs = []
-        for idx_list in cls_idx_list:
+        for idx_list in self.cls_idx_list:
             shuffle(idx_list)
             val_idxs.extend(idx_list[:self.split["val"]])
             test_idxs.extend(idx_list[self.split["val"]:sum(self.split.values())])
@@ -62,10 +63,10 @@ class SUN397DataModule(L.LightningDataModule):
             raise NotImplementedError()
         
     def train_dataloader(self):
-        return DataLoader(self.train_set, batch_size=self.bs, shuffle=True, num_workers=torch.get_num_threads(), pin_memory=True)
+        return DataLoader(self.train_set, batch_size=self.bs, shuffle=True, num_workers=self.nw, pin_memory=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, batch_size=self.bs, num_workers=torch.get_num_threads(), pin_memory=True)
+        return DataLoader(self.val_set, batch_size=self.bs, num_workers=self.nw, pin_memory=True)
 
     def test_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.bs, num_workers=torch.get_num_threads(), pin_memory=True)
+        return DataLoader(self.test_set, batch_size=self.bs, num_workers=self.nw, pin_memory=True)
