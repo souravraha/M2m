@@ -30,7 +30,7 @@ class ERMModule(L.LightningModule):
         self.example_input_array = torch.zeros((1, 3, 32, 32), device=self.device)
         # Creates metrics that would be logged
         metric = MetricCollection(
-            Recall(task="multiclass", num_classes=num_classes, average="none"),
+            Recall(task="multiclass", num_classes=num_classes, average=None),
             F1Score(task="multiclass", num_classes=num_classes, average="weighted"),
         )
         self.train_metrics = metric.clone(prefix="train_")
@@ -46,9 +46,8 @@ class ERMModule(L.LightningModule):
     def _unified_step(self, batch, stage: str):
         imgs, labels = batch
         logits = self(imgs)
-        preds = logits.softmax(dim=1)
         # Obatin dict of metrics
-        metric = getattr(self, f"{stage}_metrics")(preds, labels)
+        metric = getattr(self, f"{stage}_metrics")(logits, labels)
         # Compute geometric mean score
         metric[f"{stage}_MulticlassRecall"] = torch.exp(torch.mean(torch.log(metric[f"{stage}_MulticlassRecall"])))
         self.log_dict(metric, sync_dist=True, prog_bar=True)
@@ -59,10 +58,10 @@ class ERMModule(L.LightningModule):
             return loss
         
         # Create pandas dataframe if stage is not train
-        df = pd.DataFrame(preds.cpu().numpy()).add_prefix("Prob_")
+        df = pd.DataFrame(logits.cpu().numpy()).add_prefix("Prob_")
         df["True"] = labels.cpu()
         # Save labels and predictions to a file with file locking
-        filename = f"{self.trainer.log_dir}/step_{self.global_step:06}_{stage}_labels_preds.csv"
+        filename = f"{self.trainer.log_dir}/step_{self.global_step:06}_{stage}_labels_logits.csv"
         with FileLock(f"{filename}.lock"):
             df.to_csv(filename, mode="a", header=not os.path.isfile(filename), index=False)
         

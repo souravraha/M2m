@@ -30,7 +30,7 @@ trainer:
   gradient_clip_val: null
   gradient_clip_algorithm: null
   deterministic: null
-  benchmark: null
+  benchmark: true
   inference_mode: true
   use_distributed_sampler: true
   profiler: null
@@ -40,7 +40,7 @@ trainer:
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: ../results/erm_sun397/
-ckpt_path: null
+ckpt_path: last
 model:
   class_path: module.ERMModule
   init_args:
