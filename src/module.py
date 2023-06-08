@@ -91,8 +91,8 @@ class ERMModule(L.LightningModule):
 class M2mModule(L.LightningModule):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.g = ERMModule.load_from_checkpoint("")
-        self.f = ERMModule(self.g)
+        self.g = ERMModule.load_from_checkpoint("../results/erm_sun397/lightning_logs/version_20/checkpoints/epoch=89-step=31320.ckpt").backbone
+        self.f = ERMModule(num_classes=self.g.hparams.num_classes)
         self.beta = 0.9
         self.T = 10
         self.lam = 0.5
@@ -112,6 +112,7 @@ class M2mModule(L.LightningModule):
 
         for target in labels:
             # Decide if we would generate an image for a target class
+            # using the imbalance ratio.
             if torch.rand(1).item() < 1 - counts[target] / torch.max(counts):
                 # Conditional probability of rejecting the image. If
                 # the source class has same or less number of samples 
@@ -121,7 +122,8 @@ class M2mModule(L.LightningModule):
                 # source class is actually in the batch
                 source = torch.multinomial((1 - probs) * in_batch, 1)
                 # Check if the rejection probability of this class is 
-                # not 1. This is probably a redundant operation.
+                # not 1. This is probably a redundant operation after 
+                # the previous two steps.
                 if probs[source] != 1:
                     # Randomly selecting an image of the source class
                     seed = random.choice(img_dict[source])
@@ -138,11 +140,15 @@ class M2mModule(L.LightningModule):
                         loss_g = self.g.loss_module(self.g(x), target)
                         # Loss that is minized plus a regularizer term
                         loss = loss_g + self.lam * self.f(x)[source]
+                        # Normalized loss
                         loss = torch.div(loss, torch.norm(loss))
                         # Propagating the loss appropriately
                         optimizer.zero_grad()
                         loss.backward()
+                        # Update the seed image
                         optimizer.step()
+                        torch.clamp_(x, -1, 1)
+
                     # Reject the generated image or randomly choose an unchanged image belonging to the target class
                     if loss_g > self.gamma:
                         imgs[target] = x.detach()
