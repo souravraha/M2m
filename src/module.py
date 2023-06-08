@@ -1,4 +1,8 @@
 import os
+import random
+from typing import Any, Optional
+
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 
 import backbone
 import lightning as L
@@ -8,7 +12,7 @@ import torch.nn as nn
 from filelock import FileLock
 from torchmetrics import MetricCollection
 from torchmetrics.classification import F1Score, Recall
-
+from torch.optim import SGD
 
 class ERMModule(L.LightningModule):
     def __init__(self, num_classes, **kwargs):
@@ -83,3 +87,67 @@ class ERMModule(L.LightningModule):
 
     def on_test_epoch_end(self):
         self.test_metrics.reset()
+
+class M2mModule(L.LightningModule):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.g = ERMModule.load_from_checkpoint("")
+        self.f = ERMModule(self.g)
+        self.beta = 0.9
+        self.T = 10
+        self.lam = 0.5
+        self.gamma = 0.9
+    
+    def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
+        imgs, labels = batch  # Assuming imgs and labels are tensors
+        # Number of training samples per class
+        counts = self.trainer.datamodule.class_counts
+        # Create a binary mask for classes represented in the batch
+        in_batch = torch.zeros_like(counts)
+        in_batch[labels] = 1
+        # Create a dict of imgs grouped according to their class labels
+        img_dict = {}
+        for x, y in zip(imgs, labels):
+            img_dict.setdefault(y, []).append(x)
+
+        for target in labels:
+            # Decide if we would generate an image for a target class
+            if torch.rand(1).item() < 1 - counts[target] / torch.max(counts):
+                # Conditional probability of rejecting the image. If
+                # the source class has same or less number of samples 
+                # reject completely.
+                probs = self.beta ** torch.maximum(counts - counts[target], torch.zeros_like(counts))
+                # Randomly select the source class, ensuring that the
+                # source class is actually in the batch
+                source = torch.multinomial((1 - probs) * in_batch, 1)
+                # Check if the rejection probability of this class is 
+                # not 1. This is probably a redundant operation.
+                if probs[source] != 1:
+                    # Randomly selecting an image of the source class
+                    seed = random.choice(img_dict[source])
+                    # Preparing the soucre image for translating into 
+                    # the target class
+                    x = seed.clone().requires_grad_(True)
+                    # The models are in eval mode, it's the input that is going to be optimized
+                    optimizer = SGD([x], lr=0.1)
+                    # Small initial perturbation to the input image
+                    x = torch.clamp(x + torch.randn_like(x), -1, 1)
+                    # Need to track this to decide if the generated image ought to be rejected
+                    loss_g = 0
+                    for _ in range(self.T):
+                        loss_g = self.g.loss_module(self.g(x), target)
+                        # Loss that is minized plus a regularizer term
+                        loss = loss_g + self.lam * self.f(x)[source]
+                        loss = torch.div(loss, torch.norm(loss))
+                        # Propagating the loss appropriately
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+                    # Reject the generated image or randomly choose an unchanged image belonging to the target class
+                    if loss_g > self.gamma:
+                        imgs[target] = x.detach()
+
+        # With the modified images, train the actual submodule
+        logits = self.f(imgs)
+        loss = self.f.loss_module(logits, labels)
+        return loss
