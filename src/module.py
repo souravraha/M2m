@@ -99,10 +99,14 @@ class M2mModule(L.LightningModule):
         self.gamma = 0.9
     
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        imgs, labels = batch  # Assuming imgs and labels are tensors
         # Number of training samples per class
         counts = self.trainer.datamodule.class_counts
-        # Create a binary mask for classes represented in the batch
+        
+        x0, y0 = batch
+        imgs = x0.clone()
+        labels = y0.clone()
+        
+        # Create a binary mask for classes present in the batch
         in_batch = torch.zeros_like(counts)
         in_batch[labels] = 1
         # Create a dict of imgs grouped according to their class labels
@@ -110,48 +114,44 @@ class M2mModule(L.LightningModule):
         for x, y in zip(imgs, labels):
             img_dict.setdefault(y, []).append(x)
 
-        for target in labels:
-            # Decide if we would generate an image for a target class
-            # using the imbalance ratio.
-            if torch.rand(1).item() < 1 - counts[target] / torch.max(counts):
-                # Conditional probability of rejecting the image. If
-                # the source class has same or less number of samples 
-                # reject completely.
-                probs = self.beta ** torch.maximum(counts - counts[target], torch.zeros_like(counts))
-                # Randomly select the source class, ensuring that the
-                # source class is actually in the batch
-                source = torch.multinomial((1 - probs) * in_batch, 1)
-                # Check if the rejection probability of this class is 
-                # not 1. This is probably a redundant operation after 
-                # the previous two steps.
-                if probs[source] != 1:
-                    # Randomly selecting an image of the source class
-                    seed = random.choice(img_dict[source])
-                    # Preparing the soucre image for translating into 
-                    # the target class
-                    x = seed.clone().requires_grad_(True)
-                    # The models are in eval mode, it's the input that is going to be optimized
-                    optimizer = SGD([x], lr=0.1)
-                    # Small initial perturbation to the input image
-                    x = torch.clamp(x + torch.randn_like(x), -1, 1)
-                    # Need to track this to decide if the generated image ought to be rejected
-                    loss_g = 0
-                    for _ in range(self.T):
-                        loss_g = self.g.loss_module(self.g(x), target)
-                        # Loss that is minized plus a regularizer term
-                        loss = loss_g + self.lam * self.f(x)[source]
-                        # Normalized loss
-                        loss = torch.div(loss, torch.norm(loss))
-                        # Propagating the loss appropriately
-                        optimizer.zero_grad()
-                        loss.backward()
-                        # Update the seed image
-                        optimizer.step()
-                        torch.clamp_(x, -1, 1)
+        # Decide if we would generate an image for a labels class
+        # using the imbalance ratio.
+        gen = torch.bernoulli(1 - counts[labels] / torch.max(counts)).bool()
+        if torch.rand(1).item() < :
+            # Conditional probability of rejecting the image. If
+            # the source class has same or less number of samples 
+            # reject completely.
+            probs = self.beta ** torch.maximum(counts - counts[labels], torch.zeros_like(counts))
+            # Randomly select the source class, ensuring that the
+            # source class is actually in the batch
+            source = torch.multinomial((1 - probs) * in_batch, 1)
+            # Randomly selecting an image of the source class
+            seed = random.choice(img_dict[source])
+            # Preparing the soucre image for translating into 
+            # the labels class
+            x = seed.clone().requires_grad_(True)
+            # The models are in eval mode, it's the input that is going to be optimized
+            optimizer = SGD([x], lr=0.1)
+            # Small initial perturbation to the input image
+            x = torch.clamp(x + torch.randn_like(x), -1, 1)
+            # Need to track this to decide if the generated image ought to be rejected
+            loss_g = 0
+            for _ in range(self.T):
+                loss_g = self.g.loss_module(self.g(x), labels)
+                # Loss that is minized plus a regularizer term
+                loss = loss_g + self.lam * self.f(x)[source]
+                # Normalized loss
+                loss = torch.div(loss, torch.norm(loss))
+                # Propagating the loss appropriately
+                optimizer.zero_grad()
+                loss.backward()
+                # Update the seed image
+                optimizer.step()
+                x.data = torch.clamp_(x.data, -1, 1)
 
-                    # Reject the generated image or randomly choose an unchanged image belonging to the target class
-                    if loss_g > self.gamma:
-                        imgs[target] = x.detach()
+            # Reject the generated image or randomly choose an unchanged image belonging to the labels class
+            if loss_g > self.gamma:
+                imgs[labels] = x.detach()
 
         # With the modified images, train the actual submodule
         logits = self.f(imgs)
