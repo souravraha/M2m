@@ -20,16 +20,6 @@ MAPPING = {
     # Add more dataset mappings as needed
 }
 
-def get_fuzzy_match(query, choices, threshold=80):
-    best_match = None
-    best_ratio = 0
-    for choice in choices:
-        ratio = fuzz.ratio(query.lower(), choice.lower())
-        if ratio > best_ratio and ratio >= threshold:
-            best_match = choice
-            best_ratio = ratio
-    return best_match
-
 def get_class_nsamples(dataset_name):
     if dataset_name in MAPPING:
         return MAPPING[dataset_name]
