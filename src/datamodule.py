@@ -2,7 +2,7 @@ from random import shuffle
 
 import lightning as L
 import torch
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import (DataLoader, Subset)
 from torchvision import datasets as D
 from torchvision import transforms as T
 
@@ -32,6 +32,7 @@ class SUN397DataModule(L.LightningDataModule):
         }
         self.bs = kwargs.get("batch_size", 128)
         self.nw = kwargs.get("num_workers", 24)
+        self.os_epoch = kwargs.get("oversample_epoch", float("inf"))
 
     def setup(self, stage=None):
         # Load and split the dataset into train and validation sets
