@@ -87,7 +87,7 @@ class ERMModule(L.LightningModule):
         self.test_metrics.reset()
 
 class M2mModule(ERMModule):
-    def __init__(self, ckpt, m2m_epoch, rej_prob, attack_iters, regul_param, step_size, misclass_bound, **kwargs):
+    def __init__(self, m2m_epoch, rej_prob, attack_iters, regul_param, step_size, misclass_bound, checkpoint_path, **kwargs):
         super().__init__(**kwargs)
         self.save_hyperparameters()
 
@@ -136,7 +136,7 @@ class M2mModule(ERMModule):
         # Randomly selecting an image given the source classes
         x_major = torch.stack([random.choice(img_dict[y.item()]) for y in y_major])
         # Load oracle to compute gradients
-        oracle = ERMModule.load_from_checkpoint(checkpoint_path=self.hparams.ckpt, map_location=self.device,**self.hparams)
+        oracle = ERMModule.load_from_checkpoint(**self.hparams, map_location=self.device)
         oracle.freeze()
         # Preparing the soucre image for translating into 
         # the labels class. 
