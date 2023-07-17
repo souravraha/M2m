@@ -7,7 +7,7 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from data_loader import (get_imbalanced, get_oversampled, get_smote,
                          make_longtailed_imb)
-from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 from torchvision import datasets, transforms
 from utils import InputNormalize, sum_t
 
@@ -18,17 +18,13 @@ if torch.cuda.is_available():
 else:
     N_GPUS = 0
 
-def find_torchvision_dataset(input_string):
-    best_match = None
-    best_match_score = 0
-
-    for dataset_name in datasets.__all__:
-        similarity_score = fuzz.token_set_ratio(input_string.lower(), dataset_name.lower())
-        if similarity_score > best_match_score:
-            best_match = dataset_name
-            best_match_score = similarity_score
-
-    return best_match
+def get_class_sample_counts(dataset):
+    class_sample_counts = [0] * len(dataset.classes)
+    
+    for _, label in dataset:
+        class_sample_counts[label] += 1
+    
+    return class_sample_counts
 
 def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -95,7 +91,7 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
 
-DATASET = find_torchvision_dataset(ARGS.dataset)
+DATASET, _ = process.extractOne(ARGS.dataset.lower(), datasets.__all__)
 BATCH_SIZE = ARGS.batch_size
 MODEL = ARGS.model
 
@@ -156,12 +152,20 @@ else:
 
 ## Data Loader ##
 
-N_SAMPLES_PER_CLASS_BASE = [int(N_SAMPLES)] * N_CLASSES
-if ARGS.imb_type == 'longtail':
-    N_SAMPLES_PER_CLASS_BASE = make_longtailed_imb(N_SAMPLES, N_CLASSES, ARGS.ratio)
-elif ARGS.imb_type == 'step':
-    for i in range(ARGS.imb_start, N_CLASSES):
-        N_SAMPLES_PER_CLASS_BASE[i] = int(N_SAMPLES * (1 / ARGS.ratio))
+N_SAMPLES_PER_CLASS_BASE = get_class_sample_counts(getattr(datasets, DATASET))
+N_CLASSES = len(N_SAMPLES_PER_CLASS_BASE)
+
+if all(count == N_SAMPLES_PER_CLASS_BASE[0] for count in N_SAMPLES_PER_CLASS_BASE):
+    print(f"{DATASET} is a balanced dataset. Making it {ARGS.imb_type}-imbalanced.")
+    if ARGS.imb_type == 'longtail':
+        N_SAMPLES_PER_CLASS_BASE = make_longtailed_imb(N_SAMPLES_PER_CLASS_BASE[0], N_CLASSES, ARGS.ratio)
+
+    elif ARGS.imb_type == 'step':
+        for i in range(ARGS.imb_start, N_CLASSES):
+            N_SAMPLES_PER_CLASS_BASE[i] = int(N_SAMPLES_PER_CLASS_BASE[0] * (1 / ARGS.ratio))
+
+else:
+    print(f"{DATASET} is naturally imbalanced. Ignoring the imb_type argument: {ARGS.imb_type}.")
 
 N_SAMPLES_PER_CLASS_BASE = tuple(N_SAMPLES_PER_CLASS_BASE)
 print(N_SAMPLES_PER_CLASS_BASE)
