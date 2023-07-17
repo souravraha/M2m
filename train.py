@@ -158,6 +158,7 @@ def train_net(model_train, model_gen, criterion, optimizer_train, inputs_orig, t
 
     delta = F.relu(bs - gs)
     p_accept = 1 - ARGS.beta ** delta
+    # Eliminate where all probs are zero
     mask_valid = (p_accept.sum(1) > 0)
 
     gen_idx = gen_idx[mask_valid]
@@ -167,6 +168,7 @@ def train_net(model_train, model_gen, criterion, optimizer_train, inputs_orig, t
     select_idx = torch.multinomial(p_accept, 1, replacement=True).view(-1)
     p_accept = p_accept.gather(1, select_idx.view(-1, 1)).view(-1)
 
+    # Choose the source images, labels
     seed_targets = targets_orig[select_idx]
     seed_images = inputs_orig[select_idx]
 
