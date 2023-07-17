@@ -52,7 +52,7 @@ class ERMModule(L.LightningModule):
         metric = getattr(self, f"{stage}_metrics")(logits, labels)
         # Compute geometric mean score
         # metric[f"{stage}_MulticlassRecall"] = torch.exp(torch.mean(torch.log(metric[f"{stage}_MulticlassRecall"])))
-        self.log_dict(metric, sync_dist=True, prog_bar=True)
+        self.log_dict(metric, prog_bar=True)
 
         if stage == "train":
             loss = self.loss_module(logits, labels)
