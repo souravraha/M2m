@@ -118,7 +118,7 @@ class M2mModule(ERMModule):
         y_minor = labels[masks[-1]]
          
         # If the intended source class has same or less number of samples 
-        # source_reject completely. Zero those classes that are absent.
+        # reject completely. Zero those classes that are absent.
         source_reject = self.hparams.rej_prob ** torch.relu(counts * in_batch - counts[y_minor].unsqueeze(1))
         # Mask 2: Check if the source probs add up to a positive number
         masks.append((1 - source_reject).sum(dim=1) > 0)
