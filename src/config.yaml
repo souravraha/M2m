@@ -1,4 +1,4 @@
-# lightning.pytorch==2.0.2
+# lightning.pytorch==2.0.4
 seed_everything: true
 trainer:
   accelerator: auto
@@ -7,8 +7,7 @@ trainer:
   num_nodes: 1
   precision: 16-mixed
   logger: null
-  callbacks:
-  - class_path: callbacks.M2mCallback
+  callbacks: null
   fast_dev_run: false
   max_epochs: 90
   min_epochs: null
@@ -39,13 +38,12 @@ trainer:
   barebones: false
   plugins: null
   sync_batchnorm: false
-  reload_dataloaders_every_n_epochs: 0
+  reload_dataloaders_every_n_epochs: 60
   default_root_dir: ../results/m2m_sun397/
 ckpt_path: last
 model:
   class_path: module.M2mModule
   init_args:
-    m2m_epoch: 60
     rej_prob: 0.999
     attack_iters: 10
     regul_param: 0.5
@@ -73,7 +71,8 @@ data:
     val_split_per_class: 10
     test_split_per_class: 40
     batch_size: 128
-    num_workers: 0
+    num_workers: 24
+    oversample_epoch: 60
 optimizer:
   class_path: torch.optim.SGD
   init_args:
