@@ -87,7 +87,7 @@ class ERMModule(L.LightningModule):
         self.test_metrics.reset()
 
 class M2mModule(ERMModule):
-    def __init__(self, m2m_epoch, rej_prob, attack_iters, regul_param, step_size, misclass_bound, checkpoint_path, **kwargs):
+    def __init__(self, rej_prob, attack_iters, regul_param, step_size, misclass_bound, checkpoint_path, **kwargs):
         super().__init__(**kwargs)
         self.save_hyperparameters()
 
@@ -172,4 +172,4 @@ class M2mModule(ERMModule):
         return [imgs, labels]
 
     def training_step(self, batch, batch_idx):
-        return super().training_step(batch if self.current_epoch < self.hparams.m2m_epoch else self.generate(batch), batch_idx)
+        return super().training_step(batch if self.current_epoch < self.trainer.datamodule.os_epoch else self.generate(batch), batch_idx)
