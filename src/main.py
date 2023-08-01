@@ -2,7 +2,7 @@
 from lightning.pytorch.cli import LightningCLI
 
 # simple demo classes for your convenience
-import datamodule, module, callbacks
+import datamodule, module
 
 def cli_main():
     cli = LightningCLI()
