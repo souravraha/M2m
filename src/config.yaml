@@ -40,7 +40,7 @@ trainer:
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 60
   default_root_dir: ../results/m2m_sun397/
-ckpt_path: last
+ckpt_path: ../results/m2m_sun397/lightning_logs/version_27/checkpoints/epoch=89-step=31320.ckpt
 model:
   class_path: module.M2mModule
   init_args:
