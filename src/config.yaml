@@ -39,7 +39,7 @@ trainer:
   plugins: null
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 60
-  default_root_dir: ../tests/m2m_sun397/
+  default_root_dir: ../results/m2m_sun397/
 ckpt_path: last
 model:
   class_path: module.M2mModule
@@ -70,9 +70,10 @@ data:
     data_dir: ../data
     val_split_per_class: 10
     test_split_per_class: 40
-    batch_size: 128
-    num_workers: 0
     oversample_epoch: 60
+    batch_size: 128
+    num_workers: 24
+    pin_memory: true
 optimizer:
   class_path: torch.optim.SGD
   init_args:
