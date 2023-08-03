@@ -53,7 +53,7 @@ class ImbalancedDataModule(L.LightningDataModule):
             shuffle=False
         )
 
-    def compute_class_weights(self, dataset):
+    def _compute_class_weights(self, dataset):
         # Compute class weights for imbalanced datasets
         if not hasattr(self, "class_counts"):
             self.class_counts = torch.bincount(torch.tensor(dataset.targets))
@@ -61,9 +61,9 @@ class ImbalancedDataModule(L.LightningDataModule):
         weights = self.class_counts.reciprocal()
         return [weights[y] for y in dataset.targets]
 
-    def handle_imbalanced_dataset(self, dataset, apply_class_weights=True):
+    def _handle_imbalanced_dataset(self, dataset, apply_class_weights=True):
         if apply_class_weights:
-            class_weights = self.compute_class_weights(dataset)
+            class_weights = self._compute_class_weights(dataset)
             sampler = WeightedRandomSampler(
                 weights=class_weights,
                 num_samples=len(dataset),
@@ -143,12 +143,12 @@ class SUN397DataModule(ImbalancedDataModule):
         if stage in ["test", None]:
             self.test_set = Subset(dataset=dataset, indices=test_idxs)
 
-    def compute_class_weights(self, dataset):
+    def _compute_class_weights(self, dataset):
         dataset.targets = [dataset.dataset._labels[y] for y in dataset.indices]
-        return super().compute_class_weights(dataset)
+        return super()._compute_class_weights(dataset)
         
     def train_dataloader(self):
-        return self.handle_imbalanced_dataset(
+        return self._handle_imbalanced_dataset(
             dataset=self.train_set, 
             apply_class_weights=self.trainer.current_epoch >= self.hparams.oversample_epoch,
         )
