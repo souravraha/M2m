@@ -42,6 +42,7 @@ To train the model using PyTorch Lightning CLI, follow the steps below:
    python main.py fit -c config.yaml --hyperparameter1 value1 --hyperparameter2 value2 ...
    ```
    The trailining hyperparameter args will override their values in config.yaml file.
+   
    Example:
    ```bash
    python main.py fit -c config.yaml --lr 0.001 --batch_size 32
