@@ -1,0 +1,7 @@
+__pycache__
+*.ipynb
+data*
+*logs/
+saved_models/
+results/
+tune.py
